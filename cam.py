@@ -1,11 +1,20 @@
+import board
 import cv2
+from adafruit_motor import servo
+from adafruit_pca9685 import PCA9685
 from kivy.app import App
 from kivy.clock import Clock
+from kivy.config import Config
+from kivy.core.window import Window
 from kivy.graphics.texture import Texture
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.image import Image
 from picamera2 import Picamera2
+
+Config.set(
+    "input", "gamepad0", "joystick,/dev/input/js0,provider=hidinput"
+)  # Adjust the path if necessary
 
 
 class CameraWidget(Image):
@@ -47,6 +56,19 @@ class CameraWidget(Image):
 
 
 class CameraApp(App):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        i2c = board.I2C()
+        self.pca = PCA9685(i2c)
+        self.pca.frequency = 50
+        self.servos = []
+
+        self.servos.append(servo.Servo(self.pca.channels[0]))
+        self.servos.append(servo.Servo(self.pca.channels[1]))
+        # for channel in self.pca.channels[:2]:
+        #    self.servos.append(servo.Servo(channel))
+
     def build(self):
         layout = BoxLayout(orientation="horizontal")
 
@@ -69,7 +91,23 @@ class CameraApp(App):
         layout.add_widget(camera)
         layout.add_widget(right_buttons)
 
+        # Bind joystick events
+        Window.bind(on_joy_button_down=self.on_joy_button_down)
+        Window.bind(on_joy_axis=self.on_joy_axis)
+        Window.bind(on_joy_hat=self.on_joy_hat)
+
         return layout
+
+    def on_joy_button_down(self, window, stickid, buttonid):
+        print(f"Button {buttonid} pressed")
+        # Add your logic here to handle button presses
+
+    def on_joy_axis(self, window, stickid, axisid, value):
+        print(f"Axis {axisid} moved to {value}")
+        # Add your logic here to handle axis movements
+
+    def on_joy_hat(self, window, stickid, hatid, value):
+        print(f"Hat: {id}, Value: {value}")
 
 
 if __name__ == "__main__":
