@@ -1,7 +1,6 @@
 import board
 import cv2
-from adafruit_motor import servo
-from adafruit_pca9685 import PCA9685
+from adafruit_servokit import ServoKit
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.config import Config
@@ -15,6 +14,18 @@ from picamera2 import Picamera2
 Config.set(
     "input", "gamepad0", "joystick,/dev/input/js0,provider=hidinput"
 )  # Adjust the path if necessary
+
+
+JOY_MAX = 32768  # That seems wrong, how many bits is this?
+JOY_MIN = -32768
+JOY_RANGE = JOY_MAX - JOY_MIN
+SERVO_MAX = 180
+SERVO_MIN = 0
+SERVO_RANGE = SERVO_MAX - SERVO_MIN
+
+
+def map_joy_to_servo(x):
+    return int(SERVO_MIN + ((x - JOY_MIN) / JOY_RANGE) * SERVO_RANGE)
 
 
 class CameraWidget(Image):
@@ -59,15 +70,8 @@ class CameraApp(App):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        i2c = board.I2C()
-        self.pca = PCA9685(i2c)
-        self.pca.frequency = 50
-        self.servos = []
-
-        self.servos.append(servo.Servo(self.pca.channels[0]))
-        self.servos.append(servo.Servo(self.pca.channels[1]))
-        # for channel in self.pca.channels[:2]:
-        #    self.servos.append(servo.Servo(channel))
+        self.servo_kit = ServoKit(channels=16)
+        self.servos = self.servo_kit.servo
 
     def build(self):
         layout = BoxLayout(orientation="horizontal")
@@ -103,7 +107,10 @@ class CameraApp(App):
         # Add your logic here to handle button presses
 
     def on_joy_axis(self, window, stickid, axisid, value):
-        print(f"Axis {axisid} moved to {value}")
+        if axisid in [0, 1]:
+            print(f"mapping from {value} to {map_joy_to_servo(value)}")
+            self.servos[axisid].angle = map_joy_to_servo(value)
+
         # Add your logic here to handle axis movements
 
     def on_joy_hat(self, window, stickid, hatid, value):
